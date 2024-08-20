@@ -49,6 +49,14 @@ def upload_to_gemini(path, mime_type=None):
         print(f"Failed to upload file {path}: {e}")
         return None
 
+def delete_gemini_file(file_uri):
+    """Deletes the file from Gemini AI using its URI."""
+    try:
+        genai.delete_file(file_uri)
+        print(f"Deleted file with URI: {file_uri}")
+    except Exception as e:
+        print(f"Failed to delete file with URI {file_uri}: {e}")
+
 def process_images(directory, output_directory, unfinished_files, csv_path):
     """Recursively process each .png file in the directory and subdirectories, send it to Gemini, and save the text output."""
     
@@ -174,11 +182,16 @@ def process_images(directory, output_directory, unfinished_files, csv_path):
                 print(extracted_text)
                 print("*"*100)
                 processed_files += 1
+
+                # Delete the file from Gemini after processing
+                delete_gemini_file(uploaded_file.uri)
+
             else:
                 print(f"No text extracted for {image_path}\n")
 
     print(f"Total files: {total_files}")
     print(f"Processed files: {processed_files}")
+
 def main():
     # Directory containing PNG files
     image_directory = "./output_images/"
