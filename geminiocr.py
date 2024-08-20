@@ -126,7 +126,7 @@ def process_images(directory, output_directory, unfinished_files, csv_path):
 
                     if finish_reason == 1:  # STOP is normal
                         extracted_text = candidate.content.parts[0].text
-                        error_handled = False  # Ensure we mark it as not an error
+                        error_handled = True  
                     elif finish_reason in finish_reason_dict:
                         error_handled = True
                         print(f"{reason_text} for {image_path}.")
@@ -147,7 +147,6 @@ def process_images(directory, output_directory, unfinished_files, csv_path):
                 reason_text = finish_reason_dict.get(finish_reason, f"Unknown finish reason ({finish_reason})")
 
                 print(f"Handled StopCandidateException for {image_path}: {sce}")
-                print(f"Finish reason: {reason_text}")
 
                 # Log the unfinished file
                 log_unfinished_file_csv(csv_path, image_path, reason_text)
