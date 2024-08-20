@@ -1,8 +1,10 @@
 # Ignore all JSON and CSV files
 *.csv
 *.json
+*.txt
 
 # Ignore specific directories
 output_images/
 output_text/
+output_entities/
 pdfs/

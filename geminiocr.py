@@ -99,8 +99,9 @@ def process_images(directory, output_directory):
                     reason_text = finish_reason_dict.get(finish_reason, f"Unknown finish reason ({finish_reason})")
                     print(f"Finish reason for {image_path}: {reason_text}")
 
-                    if finish_reason == 1:  # STOP
+                    if finish_reason == 1:  # STOP is normal
                         extracted_text = candidate.content.parts[0].text
+                        error_handled = False  # Ensure we mark it as not an error
                     elif finish_reason in finish_reason_dict:
                         error_handled = True
                         print(f"{reason_text} for {image_path}.")
@@ -113,13 +114,16 @@ def process_images(directory, output_directory):
                     error_handled = True
 
             except Exception as e:
+                print(f"An error occurred while processing {image_path}: {e}")
+                error_handled = True  # Mark the error as handled
+
                 if "429" in str(e):
-                    print(f"Failed to process {image_path} due to rate limiting. Sleeping for 60 seconds.")
+                    print(f"Rate limit error for {image_path}. Exiting.")
                     sys.exit()
+                elif "RECITATION" in str(e):
+                    print(f"Recitation detected for {image_path}.")
                 else:
-                    print(f"An error occurred: {e}")
-                    if "RECITATION" in str(e):
-                        error_handled = True
+                    print(f"Unexpected error: {e}")
 
             if not error_handled:
                 print(f"Failed to process {image_path} due to an unexpected error.")
