@@ -2,7 +2,10 @@ import os
 import sys
 import google.generativeai as genai
 import json
+import csv
+import traceback
 from google.protobuf.json_format import MessageToDict
+from google.generativeai.types.generation_types import StopCandidateException
 
 # Configuration for the model
 generation_config = {
@@ -21,6 +24,21 @@ model = genai.GenerativeModel(
 # Configure the Gemini API key
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
+def log_unfinished_file_csv(csv_path, file_path, finish_reason):
+    with open(csv_path, "a", newline='') as csvfile:
+        log_writer = csv.writer(csvfile)
+        log_writer.writerow([file_path, finish_reason])
+
+def load_unfinished_files(csv_path):
+    unfinished_files = set()
+    if os.path.exists(csv_path):
+        with open(csv_path, "r") as csvfile:
+            log_reader = csv.reader(csvfile)
+            for row in log_reader:
+                if len(row) > 0:
+                    unfinished_files.add(row[0])  # Assuming the file path is the first column
+    return unfinished_files
+
 def upload_to_gemini(path, mime_type=None):
     """Uploads the given file to Gemini and returns the file metadata."""
     try:
@@ -31,7 +49,7 @@ def upload_to_gemini(path, mime_type=None):
         print(f"Failed to upload file {path}: {e}")
         return None
 
-def process_images(directory, output_directory):
+def process_images(directory, output_directory, unfinished_files, csv_path):
     """Recursively process each .png file in the directory and subdirectories, send it to Gemini, and save the text output."""
     
     # Dictionary mapping finish_reason codes to human-readable descriptions
@@ -63,7 +81,13 @@ def process_images(directory, output_directory):
                 print(f"Skipping {image_file}, corresponding text file already exists.")
                 continue
 
+            # Check if the file is a problem/unfinished file and skip
             image_path = os.path.join(root, image_file)
+
+            if image_path in unfinished_files:
+                print(f"Skipping {image_path}, as it is listed in unfinished_files.csv.")
+                continue
+
             print(f"\nProcessing: {image_path}")
 
             uploaded_file = upload_to_gemini(image_path, mime_type="image/png")
@@ -97,6 +121,7 @@ def process_images(directory, output_directory):
                     candidate = response.candidates[0]
                     finish_reason = candidate.finish_reason
                     reason_text = finish_reason_dict.get(finish_reason, f"Unknown finish reason ({finish_reason})")
+
                     print(f"Finish reason for {image_path}: {reason_text}")
 
                     if finish_reason == 1:  # STOP is normal
@@ -106,6 +131,8 @@ def process_images(directory, output_directory):
                         error_handled = True
                         print(f"{reason_text} for {image_path}.")
                         print(json.dumps(MessageToDict(response), indent=2))
+                        log_unfinished_file_csv(csv_path, image_path, reason_text)  
+                        print("Logging to csv file.")
                     else:
                         print(f"Unhandled finish reason ({finish_reason}) for {image_path}.")
                         print(json.dumps(MessageToDict(response), indent=2))
@@ -113,15 +140,27 @@ def process_images(directory, output_directory):
                     print(f"Failed to extract text for {image_path}. No valid candidates returned.")
                     error_handled = True
 
+            except StopCandidateException as sce:
+                # Access the candidate from the exception's arguments
+                candidate = sce.args[0]  # The candidate is passed as the first argument
+                finish_reason = candidate.finish_reason
+                reason_text = finish_reason_dict.get(finish_reason, f"Unknown finish reason ({finish_reason})")
+
+                print(f"Handled StopCandidateException for {image_path}: {sce}")
+                print(f"Finish reason: {reason_text}")
+
+                # Log the unfinished file
+                log_unfinished_file_csv(csv_path, image_path, reason_text)
+                error_handled = True
+
             except Exception as e:
                 print(f"An error occurred while processing {image_path}: {e}")
+                print(traceback.format_exc())  # Print the full stack trace
                 error_handled = True  # Mark the error as handled
 
                 if "429" in str(e):
                     print(f"Rate limit error for {image_path}. Exiting.")
                     sys.exit()
-                elif "RECITATION" in str(e):
-                    print(f"Recitation detected for {image_path}.")
                 else:
                     print(f"Unexpected error: {e}")
 
@@ -141,17 +180,20 @@ def process_images(directory, output_directory):
 
     print(f"Total files: {total_files}")
     print(f"Processed files: {processed_files}")
-
 def main():
     # Directory containing PNG files
     image_directory = "./output_images/"
     output_directory = "./output_text/"
+    csv_path = "./unfinished_files.csv"
+
+    # Load unfinished files from CSV
+    unfinished_files = load_unfinished_files(csv_path)
 
     # Create the output directory if it doesn't exist
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    process_images(image_directory, output_directory)
+    process_images(image_directory, output_directory, unfinished_files, csv_path)
 
 if __name__ == "__main__":
     main()
