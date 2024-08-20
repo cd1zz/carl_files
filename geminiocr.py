@@ -50,9 +50,13 @@ def upload_to_gemini(path, mime_type=None):
         return None
 
 def delete_gemini_file(file_uri):
-    """Deletes the file from Gemini AI using its URI."""
+    """Deletes a file from Gemini AI using its URI."""
     try:
-        genai.delete_file(file_uri)
+        # Extract the file ID from the URI
+        file_id = file_uri.split('/')[-1]
+
+        # Call the delete_file method with only the file ID
+        genai.delete_file(file_id)
         print(f"Deleted file with URI: {file_uri}")
     except Exception as e:
         print(f"Failed to delete file with URI {file_uri}: {e}")
