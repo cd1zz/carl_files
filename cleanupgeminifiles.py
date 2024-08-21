@@ -12,8 +12,8 @@ def list_gemini_files():
         
         if files:
             print(f"Total files found: {len(files)}")
-            #for idx, file in enumerate(files):
-            #    print(f"{idx + 1}. File URI: {file.uri}, Display Name: {file.display_name}, Size: {file.size_bytes} bytes, Created: {file.create_time}")
+            for idx, file in enumerate(files):
+                print(f"{idx + 1}. File URI: {file.uri}, Display Name: {file.display_name}, Size: {file.size_bytes} bytes, Created: {file.create_time}")
             return files
         else:
             print("No files found.")
